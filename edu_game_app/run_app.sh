@@ -1,34 +1,32 @@
 #!/bin/bash
 # Startup script for Learn & Play Educational App
+# Works both from terminal and when launched automatically at login.
 
-echo "Starting Learn & Play Educational App..."
-echo ""
+# Change to the directory this script lives in
+cd "$(dirname "$0")"
 
-# Check if Python is installed
-if ! command -v python3 &> /dev/null; then
-    echo "Error: Python 3 is not installed!"
-    echo "Please install Python 3.11 or higher"
+# Load .env so ANTHROPIC_API_KEY is available
+if [ -f .env ]; then
+    set -a
+    source .env
+    set +a
+fi
+
+# Find python3 (handles Homebrew on Apple Silicon and Intel Macs)
+PYTHON=""
+for candidate in python3 /opt/homebrew/bin/python3 /usr/local/bin/python3 /usr/bin/python3; do
+    if command -v "$candidate" &>/dev/null; then
+        PYTHON="$candidate"
+        break
+    fi
+done
+
+if [ -z "$PYTHON" ]; then
+    osascript -e 'display alert "Learn & Play" message "Python 3 is not installed. Please install it from python.org." as critical' 2>/dev/null
     exit 1
 fi
 
-# Check Python version
-python_version=$(python3 --version 2>&1 | awk '{print $2}')
-echo "Python version: $python_version"
+# Install dependencies silently if missing
+"$PYTHON" -m pip install -r requirements.txt --quiet 2>/dev/null
 
-# Check if dependencies are installed
-if ! python3 -c "import PyQt6" 2>/dev/null; then
-    echo ""
-    echo "Installing dependencies..."
-    pip3 install -r requirements.txt
-fi
-
-# Load environment variables if .env exists
-if [ -f .env ]; then
-    export $(grep -v '^#' .env | xargs)
-    echo "Loaded environment variables from .env"
-fi
-
-# Run the application
-echo "Launching application..."
-echo ""
-python3 app.py
+exec "$PYTHON" app.py
