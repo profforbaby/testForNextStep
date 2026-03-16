@@ -31,9 +31,14 @@ class MainWindow(QMainWindow):
         # Initialize core components
         self.db = Database("edu_app.db")
         self.profile = self.db.get_or_create_profile()
+        # Ensure existing profiles are upgraded to minimum level 4
+        if self.profile.current_level < 4:
+            self.profile.current_level = 4
+            self.db.update_profile(self.profile)
         self.quiz_engine = QuizEngine()
         self.difficulty_mgr = DifficultyManager(self.profile.current_level)
         self.progress_tracker = ProgressTracker()
+        self.db.reset_game_time_balance()
         self.game_tracker = GameTimeTracker(self.db)
         self.text_reader = TextReader()
 

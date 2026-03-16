@@ -21,10 +21,10 @@ class ContentGenerator:
 
     def generate_passage(self, difficulty_level: int = 1, topic: str = "random") -> Passage:
         """
-        Generate a reading passage suitable for Primary 1 students
+        Generate a reading passage
 
         Args:
-            difficulty_level: 1 (easy), 2 (medium), 3 (challenging)
+            difficulty_level: 1 (easy/P1), 2 (medium/P2-3), 3 (challenging/P4-5), 4 (advanced/P6)
             topic: Subject matter (animals, family, school, nature, toys, food, etc.)
 
         Returns:
@@ -34,17 +34,23 @@ class ContentGenerator:
         word_ranges = {
             1: (30, 50),
             2: (50, 80),
-            3: (80, 100)
+            3: (80, 100),
+            4: (200, 300)
         }
 
         word_min, word_max = word_ranges.get(difficulty_level, (30, 50))
 
         prompt = self._create_passage_prompt(difficulty_level, topic, word_min, word_max)
+        system_prompt = (
+            "You are an expert Primary 6 English teacher in Singapore creating PSLE-level reading comprehension materials. Always respond with valid JSON only."
+            if difficulty_level == 4 else
+            "You are an expert elementary school teacher creating reading materials for 6-7 year old children (Primary 1/Grade 1). Always respond with valid JSON only."
+        )
         response = self.client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=2000,
+            max_tokens=3000,
             temperature=0.7,
-            system="You are an expert elementary school teacher creating reading materials for 6-7 year old children (Primary 1/Grade 1). Always respond with valid JSON only.",
+            system=system_prompt,
             messages=[
                 {"role": "user", "content": prompt}
             ]
@@ -87,26 +93,38 @@ class ContentGenerator:
         difficulty_descriptions = {
             1: "very simple sentences, basic sight words (the, and, is, can, I, see), present tense only",
             2: "simple compound sentences, common vocabulary, mix of present and past tense",
-            3: "some descriptive language, a few challenging words with context clues, varied sentence structures"
+            3: "some descriptive language, a few challenging words with context clues, varied sentence structures",
+            4: "rich vocabulary, figurative language, complex sentence structures, inference required, suitable for Singapore Primary 6 / PSLE level (age 11-12)"
         }
 
-        topic_instruction = f"about {topic}" if topic != "random" else "on any child-friendly topic (animals, family, daily activities, nature, toys, food, friends, or school)"
+        if level == 4:
+            topic_instruction = f"about {topic}" if topic != "random" else "on a topic suitable for Primary 6 Singapore students (environment, science, Singapore heritage, social values, adventure, or nature)"
+            age_note = "a Singapore Primary 6 student (age 11-12) preparing for PSLE"
+            question_note = (
+                "- Questions must include: vocabulary-in-context, inference, cause-and-effect, main idea, and author's purpose\n"
+                "- Use challenging distractors that require careful reading to eliminate"
+            )
+        else:
+            topic_instruction = f"about {topic}" if topic != "random" else "on any child-friendly topic (animals, family, daily activities, nature, toys, food, friends, or school)"
+            age_note = "a 6-7 year old child (Primary 1/Grade 1 level)"
+            question_note = (
+                "- Questions should test comprehension (main idea, details, sequence, simple inference)\n"
+                "- Wrong answers should be plausible but clearly incorrect"
+            )
 
-        prompt = f"""Generate a reading passage for a 6-7 year old child (Primary 1/Grade 1 level).
+        prompt = f"""Generate a reading passage for {age_note}.
 
 Requirements:
 - Length: {word_min}-{word_max} words
 - Difficulty: Level {level} - {difficulty_descriptions[level]}
 - Topic: {topic_instruction}
-- Must be engaging and appropriate for young children
+- Must be engaging and appropriate
 - Include a clear beginning, middle, and end
-- Use simple, concrete concepts
 
 Also create 5 multiple choice questions based on the passage:
-- Questions should test comprehension (main idea, details, sequence, simple inference)
+{question_note}
 - Each question should have 4 answer options (A, B, C, D)
 - Only ONE correct answer per question
-- Wrong answers should be plausible but clearly incorrect
 - Questions should be answerable from the passage
 
 Return response in this exact JSON format:
@@ -164,6 +182,50 @@ IMPORTANT:
                     ("What colour was the flower?", "C", ["red", "blue", "yellow", "pink"]),
                     ("What did the bee collect?", "D", ["water", "soil", "pollen", "nectar"]),
                     ("What is the main idea of the story?", "A", ["A seed grows into a flower", "A bee visits a garden", "Rain helps animals", "A child plants a tree"])
+                ]
+            },
+            4: {
+                "title": "Singapore's Water Story",
+                "content": (
+                    "Water is one of Singapore's most precious resources. As a small island nation with no "
+                    "natural lakes or rivers large enough to store significant amounts of water, Singapore "
+                    "has had to be creative and disciplined in managing its water supply.\n\n"
+                    "Singapore uses four main sources of water, known as the 'Four National Taps'. The first "
+                    "is rainwater collected and stored in reservoirs. The second is water imported from the "
+                    "Johor River in Malaysia under long-term agreements. The third is NEWater — highly "
+                    "purified recycled water treated until it is cleaner than most drinking water in the "
+                    "world. The fourth is desalinated water, which is seawater with the salt removed.\n\n"
+                    "NEWater was once considered an unusual idea, but today it supplies about forty percent "
+                    "of Singapore's water needs. The technology uses a three-step process of micro-filtration, "
+                    "reverse osmosis, and ultraviolet disinfection to remove all impurities.\n\n"
+                    "Singapore's national water agency runs regular campaigns encouraging residents to use "
+                    "water wisely. Schools teach water conservation from an early age, and water-efficient "
+                    "fittings are required in all new buildings. Because Singapore knows from experience what "
+                    "it means to face water shortages, it treats every drop as valuable. This careful, "
+                    "forward-thinking approach to water management is now studied and admired by countries "
+                    "around the world."
+                ),
+                "questions": [
+                    ("Why does Singapore face challenges in managing its water supply?",
+                     "C", ["it has too many rivers to manage", "its population is too small to build dams",
+                           "it is a small island with no large lakes or rivers", "heavy rain causes flooding in its reservoirs"]),
+                    ("What are the 'Four National Taps'?",
+                     "B", ["four rivers that supply Singapore with water",
+                           "four methods Singapore uses to collect and produce water",
+                           "four companies that manage Singapore's water",
+                           "four dams built along Singapore's coast"]),
+                    ("What does the word 'desalinated' mean in the passage?",
+                     "D", ["recycled and purified", "collected from rainfall", "filtered through reservoirs", "having had salt removed"]),
+                    ("What does Singapore's use of NEWater show about the country?",
+                     "C", ["Singapore relies on Malaysia for most of its water",
+                           "Singapore prefers importing water over producing its own",
+                           "Singapore is willing to use creative solutions to overcome challenges",
+                           "Singapore's water technology was borrowed from other countries"]),
+                    ("Why is Singapore's water management admired worldwide?",
+                     "D", ["it is the cheapest water system in Asia",
+                           "it uses only one source to supply all its water",
+                           "it was designed entirely by foreign experts",
+                           "it is a forward-thinking solution to the challenge of scarce resources"])
                 ]
             }
         }

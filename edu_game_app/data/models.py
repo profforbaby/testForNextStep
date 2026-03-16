@@ -11,7 +11,7 @@ class ChildProfile:
     """Child user profile"""
     id: Optional[int] = None
     name: str = "Student"
-    current_level: int = 1
+    current_level: int = 4
     total_quizzes: int = 0
     created_date: datetime = None
 

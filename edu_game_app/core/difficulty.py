@@ -11,7 +11,7 @@ class DifficultyManager:
 
     # Difficulty level constraints
     MIN_LEVEL = 1
-    MAX_LEVEL = 3
+    MAX_LEVEL = 4
 
     # Performance thresholds
     EXCELLENT_THRESHOLD = 0.90  # 90% or higher
@@ -21,7 +21,7 @@ class DifficultyManager:
     CONSECUTIVE_FOR_INCREASE = 3
     CONSECUTIVE_FOR_DECREASE = 2
 
-    def __init__(self, current_level: int = 1):
+    def __init__(self, current_level: int = 4):
         """Initialize with current difficulty level"""
         self.current_level = max(self.MIN_LEVEL, min(current_level, self.MAX_LEVEL))
 
@@ -50,7 +50,7 @@ class DifficultyManager:
                 self.current_level += 1
                 reason = f"Great job! You got {analysis['consecutive_excellent']} excellent scores in a row. Moving to Level {self.current_level}!"
             else:
-                reason = "Excellent work! You're already at the highest level!"
+                reason = "Excellent work! You're already at the highest level — Primary 6 master!"
 
         # Check for level decrease (struggling)
         elif analysis['consecutive_poor'] >= self.CONSECUTIVE_FOR_DECREASE:
@@ -116,7 +116,8 @@ class DifficultyManager:
         descriptions = {
             1: "Level 1 (Beginner): Simple sentences with basic words",
             2: "Level 2 (Intermediate): Longer passages with more vocabulary",
-            3: "Level 3 (Advanced): Challenging stories with descriptive language"
+            3: "Level 3 (Advanced): Challenging stories with descriptive language",
+            4: "Level 4 (Primary 6): 200-300 word passages with inference, vocabulary, and critical thinking"
         }
         return descriptions.get(level, "Unknown level")
 

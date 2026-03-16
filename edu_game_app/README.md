@@ -1,66 +1,82 @@
 # Learn & Play - Educational App for Children
 
-An educational application designed for Primary 1 (6-7 years old) children that encourages reading through gamification. Children earn game time by completing reading comprehension quizzes.
+An educational application designed for Primary school children that encourages reading through gamification. Children earn game time by completing reading comprehension quizzes.
 
 ## Features
 
-- **AI-Generated Content**: Unlimited reading passages tailored to your child's level using OpenAI API
-- **Adaptive Difficulty**: Automatically adjusts difficulty based on performance (Levels 1-3)
+- **AI-Generated Content**: Unlimited reading passages tailored to your child's level using Anthropic Claude API
+- **Adaptive Difficulty**: Automatically adjusts difficulty based on performance (Levels 1–4)
 - **Text-to-Speech**: Built-in reading assistance with adjustable speed
 - **Quiz System**: 5 multiple-choice questions per passage, 80% required to pass
 - **Game Time Rewards**: Earn 60 minutes of game time for each passed quiz
+- **Daily Reset**: Game time resets to 0 every time the app is opened — child must earn time each day
 - **Parent Controls**: Password-protected settings and game management
 - **Progress Tracking**: Detailed reports on reading progress and performance
-- **Custom Game Launcher**: Control which games children can access
+- **Game Blocking**: Automatically closes blocked games/apps when time runs out
+
+---
+
+## Platform Support
+
+| Platform | Supported | Notes |
+|----------|-----------|-------|
+| Windows 10/11 | ✅ Yes | Run via `python run_edu_app.py` |
+| macOS 12+ | ✅ Yes | Run via `python run_edu_app.py` or `run_app.sh` |
+
+**`run_app.sh` and `setup_mac_autostart.sh` are macOS-only scripts — ignore them on Windows.**
+
+---
 
 ## Installation
 
 ### Prerequisites
 
 - Python 3.11 or higher
-- macOS (optimized for Mac Mini)
-- OpenAI API key (optional, for AI-generated content)
+- Anthropic API key (optional — app works offline with built-in passages)
 
 ### Step 1: Install Dependencies
 
 ```bash
-cd edu_game_app
-pip install -r requirements.txt
+pip install -r edu_game_app/requirements.txt
 ```
 
-### Step 2: Set Up OpenAI API Key (Optional)
-
-1. Get an API key from [OpenAI Platform](https://platform.openai.com/api-keys)
-2. Create a `.env` file:
+On Windows, also install `pyttsx3` for text-to-speech:
 
 ```bash
-cp .env.example .env
+pip install pyttsx3
 ```
 
-3. Edit `.env` and add your API key:
+### Step 2: Set Up Anthropic API Key (Optional)
+
+1. Get an API key from [Anthropic Console](https://console.anthropic.com/)
+2. Create a `.env` file inside the `edu_game_app/` folder:
 
 ```
-OPENAI_API_KEY=sk-your-actual-api-key-here
+ANTHROPIC_API_KEY=sk-ant-your-actual-key-here
 ```
 
-**Note**: The app will work without an API key using pre-made content, but won't have unlimited variety.
+**Note**: The app works without an API key using 26 built-in offline passages (Levels 1–4). The API key enables unlimited AI-generated passages.
 
 ### Step 3: Run the Application
 
 ```bash
-python app.py
+python run_edu_app.py
 ```
+
+Run this from the project root directory (the folder containing `run_edu_app.py`).
+
+---
 
 ## Usage
 
 ### For Children
 
-1. **Start the app**: Launch the application
-2. **Click "Start Reading"**: Get a new reading passage
-3. **Read the passage**: Use "Read Aloud" button if needed
-4. **Take the quiz**: Answer 5 questions about the passage
-5. **Earn game time**: Score 80% or higher to earn 60 minutes
-6. **Play games**: Click "Play Games" when you have time available
+1. **Start the app** — launch with `python run_edu_app.py`
+2. **Click "Start Reading"** — get a reading passage
+3. **Read the passage** — use "Read Aloud" button if needed
+4. **Take the quiz** — answer 5 questions about the passage
+5. **Earn game time** — score 80% or higher to earn 60 minutes
+6. **Play games** — click "Play Games" when you have time available
 
 ### For Parents
 
@@ -72,259 +88,172 @@ python app.py
 
 #### Parent Panel Features
 
-**Settings Tab**:
-- Change child's name
-- Configure API key
+**Settings Tab**: Change child's name, configure API key
 
-**Allowed Games Tab**:
-- Add games from `/Applications` folder
-- Remove games from allowed list
-- Only listed games can be launched
+**Allowed Games Tab**: Add/remove games the child is allowed to launch
 
-**Progress Report Tab**:
-- View all quiz attempts
-- See scores, difficulty levels, and time spent
-- Export reports to text files
+**Progress Report Tab**: View quiz history, scores, difficulty levels, and time spent
 
-**Time Management Tab**:
-- View current game time balance
-- Manually adjust time (for special circumstances)
-- Reset time to 0
+**Time Management Tab**: View balance, manually adjust time, reset to 0
 
-## Configuration
+---
 
-### Default Password
+## Difficulty Levels
 
-- **Parent Password**: `parent123`
-- To change: Edit in `config/settings.json`
+| Level | Words | Description | Suitable For |
+|-------|-------|-------------|--------------|
+| 1 | 30–50 | Simple sentences, basic sight words | Primary 1–2 |
+| 2 | 50–80 | Compound sentences, common vocabulary | Primary 2–3 |
+| 3 | 80–100 | Descriptive language, varied sentence structures | Primary 4–5 |
+| 4 | 200–300 | Inference, vocabulary-in-context, critical thinking | Primary 6 / PSLE |
 
-### Difficulty Levels
-
-- **Level 1**: 30-50 words, simple sentences, basic sight words
-- **Level 2**: 50-80 words, compound sentences, more vocabulary
-- **Level 3**: 80-100 words, descriptive language, challenging words
+**Default starting level**: 4 (Primary 6)
 
 ### Auto-Adjustment Rules
 
 - **Level Up**: 3 consecutive quizzes with 90%+ score
-- **Level Down**: 2 consecutive quizzes with <70% score
+- **Level Down**: 2 consecutive quizzes with below 70% score
 
-### Quiz Settings
+---
 
-- **Passing Score**: 80% (4 out of 5 questions)
-- **Questions per Quiz**: 5
-- **Time Earned**: 60 minutes per passed quiz
+## Game Blocking
+
+When a child's game time runs out, the app automatically closes blocked applications:
+
+- **Browsers**: Chrome, Firefox, Edge, Opera, Brave, Safari
+- **Games**: Minecraft Education Edition, Steam, Astroneer, GeForce NOW, CrossOver
+
+---
 
 ## Setting Up Auto-Launch on Startup
 
+### Windows
+
+#### Method 1: Using the Startup Folder (Easiest)
+
+A `run_app.bat` file is included in the project root. Use it to launch the app automatically on login.
+
+1. Locate `run_app.bat` in the project folder (e.g. `C:\Users\YourName\PycharmProjects\testForNextStep\run_app.bat`)
+2. Right-click `run_app.bat` → **Send to** → **Desktop (create shortcut)**
+3. Press **Windows Key + R**, type `shell:startup`, click **OK** — this opens the user startup folder
+4. Move or paste the shortcut from your Desktop into that startup folder
+
+The app will now launch automatically every time Windows starts.
+
+To test it without restarting, double-click `run_app.bat` directly.
+
 ### macOS
 
-1. Open **System Preferences → Users & Groups**
-2. Select your child's user account
-3. Click **Login Items** tab
-4. Click **+** button
-5. Navigate to the app and add it
-
-Or create a launch agent:
-
-1. Create file: `~/Library/LaunchAgents/com.eduapp.learnandplay.plist`
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.eduapp.learnandplay</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/usr/local/bin/python3</string>
-        <string>/path/to/edu_game_app/app.py</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-</dict>
-</plist>
-```
-
-2. Load the agent:
+Run the provided setup script:
 
 ```bash
-launchctl load ~/Library/LaunchAgents/com.eduapp.learnandplay.plist
+bash setup_mac_autostart.sh
 ```
 
-## Game Configuration
+Or manually add the app to **System Preferences → Users & Groups → Login Items**.
 
-### Adding Allowed Games
-
-1. Open Parent Controls (password required)
-2. Go to "Allowed Games" tab
-3. Click "Add Game"
-4. Navigate to `/Applications`
-5. Select game (e.g., Minecraft.app, Roblox.app)
-
-**Supported formats**:
-- macOS `.app` bundles
-- Regular executables
-
-### How Game Time Works
-
-1. Child completes quiz with ≥80% score
-2. Earns 60 minutes of game time
-3. Time accumulates (can save up to 3 hours)
-4. "Play Games" button becomes enabled
-5. Child selects game to launch
-6. Timer counts down
-7. Game closes automatically when time expires
+---
 
 ## Troubleshooting
 
-### "OpenAI API key is required" Error
+### "API key not found" Warning
 
-- Create `.env` file with your API key
-- Or set environment variable: `export OPENAI_API_KEY=your-key`
-- App will use fallback content if API key is missing
+The app will still run using built-in offline passages. To enable AI content, add your Anthropic API key to `edu_game_app/.env`.
 
-### Text-to-Speech Not Working
+### Text-to-Speech Not Working (Windows)
 
-- Check system TTS is enabled in System Preferences
-- Try adjusting speed with the slider
-- Restart the application
+Install pyttsx3:
+```bash
+pip install pyttsx3
+```
+
+### Text-to-Speech Not Working (macOS)
+
+Check that **System Preferences → Accessibility → Spoken Content** is enabled.
+
+### Still Showing Level 1 / "My Dog Max" Passage
+
+The existing profile in the database may be saved at Level 1. The app now auto-upgrades any profile below Level 4 on startup. If this persists, delete `edu_app.db` and restart — a fresh profile will be created at Level 4.
 
 ### Can't Close Application
 
-- Application requires parent password to close (security feature)
-- Default password: `parent123`
-- This prevents children from closing the app
+The app requires the parent password to close (security feature). Default password: `parent123`.
 
 ### Games Not Launching
 
-- Ensure game is in "Allowed Games" list
-- Check game path is correct
-- Verify game time balance is > 0
-- Check game is not already running
+- Ensure the game is in the "Allowed Games" list (Parent Controls)
+- Verify the game time balance is greater than 0
+- Check the game path is correct
+
+---
 
 ## File Structure
 
 ```
-edu_game_app/
-├── app.py                  # Main entry point
-├── requirements.txt        # Python dependencies
-├── README.md              # This file
-├── .env.example           # Environment variables template
-├── config/
-│   └── settings.json      # App configuration
-├── data/
-│   ├── models.py          # Data models
-│   ├── database.py        # SQLite database
-│   └── __init__.py
-├── core/
-│   ├── content_generator.py  # AI content generation
-│   ├── tts_engine.py         # Text-to-speech
-│   ├── difficulty.py         # Adaptive difficulty
-│   ├── quiz_engine.py        # Quiz logic
-│   ├── game_controller.py    # Game management
-│   └── __init__.py
-├── gui/
-│   ├── main_window.py     # Main application window
-│   ├── reading_widget.py  # Reading passage display
-│   ├── quiz_widget.py     # Quiz interface
-│   ├── timer_widget.py    # Game time display
-│   ├── parent_panel.py    # Parent controls
-│   └── __init__.py
-└── resources/             # Icons and images (future)
+testForNextStep/
+├── run_edu_app.py              # Main entry point — run this
+├── run_app.bat                 # Windows: double-click to launch, or use for auto-start
+├── edu_game_app/
+│   ├── requirements.txt        # Python dependencies
+│   ├── README.md               # This file
+│   ├── .env                    # API key (create this yourself)
+│   ├── run_app.sh              # macOS-only launch script
+│   ├── data/
+│   │   ├── models.py           # Data models
+│   │   ├── database.py         # SQLite database + seed passages
+│   │   └── __init__.py
+│   ├── core/
+│   │   ├── content_generator.py   # AI content generation (Anthropic)
+│   │   ├── tts_engine.py          # Text-to-speech (macOS: say, Windows: pyttsx3)
+│   │   ├── difficulty.py          # Adaptive difficulty (Levels 1–4)
+│   │   ├── quiz_engine.py         # Quiz logic
+│   │   ├── game_controller.py     # Game launching and blocking
+│   │   └── __init__.py
+│   └── gui/
+│       ├── main_window.py         # Main application window
+│       ├── reading_widget.py      # Reading passage display
+│       ├── quiz_widget.py         # Quiz interface
+│       ├── timer_widget.py        # Game time display
+│       ├── parent_panel.py        # Parent controls
+│       └── __init__.py
+└── setup_mac_autostart.sh      # macOS-only auto-start setup
 ```
+
+---
 
 ## Database
 
-The app uses SQLite database (`edu_app.db`) to store:
-- Child profile and progress
-- Reading passages and questions
+The app uses SQLite (`edu_app.db`) stored in the project root. It contains:
+- Child profile and current level
+- Built-in seed passages (26 passages across Levels 1–4)
 - Quiz attempts and scores
-- Game time balance and usage
+- Game time balance and session history
 
-**Backup**: Regularly backup `edu_app.db` file to preserve progress.
+**Backup**: Copy `edu_app.db` to preserve your child's progress.
+
+**Reset**: Delete `edu_app.db` to start fresh.
+
+---
 
 ## Security Features
 
-1. **Password-protected closure**: Prevents children from closing app
-2. **Password-protected settings**: Only parents can change settings
-3. **Game whitelist**: Only approved games can be launched
-4. **Time enforcement**: Automatic game closure when time expires
+1. **Password-protected closure** — prevents children from closing the app
+2. **Password-protected settings** — only parents can change settings
+3. **Game whitelist** — only approved games can be launched
+4. **Time enforcement** — automatic game closure when time expires
+5. **Daily reset** — game time is zeroed each time the app starts
 
-## Tips for Parents
-
-1. **Start at Level 1**: Even if your child reads well, start easy to build confidence
-2. **Review progress weekly**: Check the Progress Report tab regularly
-3. **Adjust games wisely**: Only allow age-appropriate games
-4. **Encourage reading aloud**: Use the TTS feature for pronunciation help
-5. **Celebrate milestones**: The app shows achievement messages
-6. **Set daily limits**: Use manual time adjustment if needed
-
-## Customization
-
-### Change Parent Password
-
-Edit `config/settings.json`:
-
-```json
-{
-  "parent_password": "your-new-password"
-}
-```
-
-### Adjust Time Rewards
-
-Edit `config/settings.json`:
-
-```json
-{
-  "time_per_quiz": 30  // Change from 60 to 30 minutes
-}
-```
-
-### Modify Passing Score
-
-Edit `config/settings.json`:
-
-```json
-{
-  "quiz_passing_score": 0.7  // Change from 0.8 (80%) to 0.7 (70%)
-}
-```
-
-## Future Enhancements
-
-Potential features for future versions:
-- Multiple child profiles
-- Reading streak rewards
-- Achievement badges
-- Reading comprehension analytics
-- Voice recording for reading practice
-- Multiplayer quiz mode
-- Integration with school curriculum
-
-## Support
-
-For issues or questions:
-1. Check this README
-2. Review error messages in the app
-3. Check database permissions
-4. Verify API key is set correctly
-
-## License
-
-This application is for personal/educational use.
+---
 
 ## Credits
 
 - Built with Python and PyQt6
-- AI content powered by OpenAI GPT-4
-- Text-to-speech using pyttsx3
-- Icons: (to be added)
+- AI content powered by Anthropic Claude
+- Text-to-speech: macOS built-in `say` command / `pyttsx3` on Windows
+- Database: SQLite
 
 ---
 
-**Version**: 1.0.0
-**Last Updated**: 2024
-**Tested on**: macOS 12+, Python 3.11+
+**Version**: 2.0.0
+**Last Updated**: March 2026
+**Tested on**: Windows 11, macOS 12+, Python 3.11+

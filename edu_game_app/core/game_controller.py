@@ -32,6 +32,12 @@ class GameController:
         'steam', 'steam.exe',
         # Common Steam game runtime helpers
         'steamwebhelper', 'steamwebhelper.exe',
+        # Astroneer
+        'astroneer', 'astroneer.exe',
+        # GeForce NOW
+        'geforcenow', 'geforcenow.exe',
+        # CrossOver
+        'crossover', 'crossover.exe',
     }
 
     def __init__(self, time_balance: int = 0):

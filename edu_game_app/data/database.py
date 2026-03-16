@@ -115,7 +115,7 @@ class Database:
             # Create new profile
             cursor.execute(
                 "INSERT INTO child_profile (name, current_level, total_quizzes) VALUES (?, ?, ?)",
-                (name, 1, 0)
+                (name, 4, 0)
             )
             self.conn.commit()
             return self.get_or_create_profile(name)
@@ -250,6 +250,17 @@ class Database:
         ''', (minutes, -minutes))
         self.conn.commit()
 
+    def reset_game_time_balance(self):
+        """Reset game time balance to 0 (called on every app startup)"""
+        current = self.get_game_time_balance()
+        if current > 0:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                INSERT INTO game_sessions (minutes_earned, minutes_used, balance)
+                VALUES (0, ?, ?)
+            ''', (current, -current))
+            self.conn.commit()
+
     def get_random_passage_by_level(self, level: int) -> Optional['Passage']:
         """Return a random seeded passage at the given difficulty level."""
         import random
@@ -269,14 +280,20 @@ class Database:
         return self.get_passage_with_questions(chosen_id)
 
     def _seed_offline_passages(self):
-        """Insert 20 built-in offline passages if they haven't been seeded yet."""
+        """Insert built-in offline passages if they haven't been seeded yet."""
         cursor = self.conn.cursor()
         cursor.execute("SELECT COUNT(*) as n FROM passages WHERE is_seed = 1")
-        if cursor.fetchone()['n'] > 0:
-            return  # Already seeded
+        total_seeded = cursor.fetchone()['n']
+        cursor.execute("SELECT COUNT(*) as n FROM passages WHERE is_seed = 1 AND difficulty_level = 4")
+        level4_seeded = cursor.fetchone()['n']
 
-        # 20 passages: 7 level-1, 7 level-2, 6 level-3
-        # Format: (title, content, level, topic, [(question, correct_letter, [optA, optB, optC, optD]), ...])
+        seed_all = total_seeded == 0
+        seed_level4 = level4_seeded == 0
+
+        if not seed_all and not seed_level4:
+            return  # Already fully seeded
+
+        # Format: (title, level, topic, content, [(question, correct_letter, [optA, optB, optC, optD]), ...])
         passages = [
             # ── LEVEL 1 ──────────────────────────────────────────────────
             (
@@ -569,9 +586,266 @@ class Database:
                     ("What did Freya tell Leo?", "B", ["to stop being sad", "they could build a bigger one next time", "they should go inside", "snowmen always melt"]),
                 ]
             ),
+            # ── LEVEL 4 (Primary 6 / PSLE Singapore) ─────────────────────
+            (
+                "The Kampong Spirit", 4, "heritage",
+                "Before Singapore became a modern city, many people lived in kampongs — villages of wooden "
+                "houses surrounded by fruit trees and open land. Life in the kampong was simple but filled "
+                "with warmth. Neighbours shared food, helped one another repair their homes, and celebrated "
+                "festivals together. Children played barefoot in the dirt, chased chickens, and climbed "
+                "rambutan trees after school. "
+                "Today, almost no kampongs remain in Singapore. The government built Housing Development "
+                "Board flats to provide every family with a clean, safe, and comfortable home. Thousands "
+                "of families moved from kampongs into these high-rise apartments during the 1960s and 1970s. "
+                "However, the 'kampong spirit' — the feeling of care and togetherness — did not disappear. "
+                "Community centres were set up in every neighbourhood so that residents could gather, learn "
+                "new skills, and celebrate national events. Block parties, where neighbours share food at "
+                "long tables in the void deck, keep that old spirit alive in a modern setting. "
+                "Historians believe that remembering the kampong way of life helps Singaporeans stay "
+                "connected to their roots. Although the physical kampongs are gone, the values they "
+                "represented — kindness, sharing, and looking out for one another — remain an important "
+                "part of Singapore's national identity.",
+                [
+                    ("What is a kampong?", "A",
+                     ["a village of wooden houses surrounded by fruit trees and open land",
+                      "a type of HDB flat built in the 1960s", "a community centre for residents", "a modern shopping district"]),
+                    ("What does 'kampong spirit' mean in this passage?", "B",
+                     ["the physical buildings and land of a kampong",
+                      "the feeling of care and togetherness among neighbours",
+                      "the outdoor games children played", "the festivals celebrated in the village"]),
+                    ("Why did families move from kampongs to HDB flats?", "C",
+                     ["kampong life was too dangerous", "the government forced all residents to leave",
+                      "to have clean, safe, and comfortable homes", "HDB flats were located near better schools"]),
+                    ("What keeps the kampong spirit alive in modern Singapore?", "D",
+                     ["rebuilding old kampong structures", "planting fruit trees around HDB blocks",
+                      "returning to traditional festivals only", "community centres and void-deck block parties"]),
+                    ("What is the main message of the passage?", "C",
+                     ["Singapore should rebuild its kampongs", "HDB flats are superior to kampong houses",
+                      "the values of the kampong live on in modern Singapore", "technology has replaced traditional communities"]),
+                ]
+            ),
+            (
+                "Solar Energy in Singapore", 4, "science",
+                "Singapore is a small country with limited land and no natural resources such as coal or oil. "
+                "To meet its growing energy needs, Singapore has been investing heavily in solar power. Solar "
+                "panels, which convert sunlight into electricity, are now found on the rooftops of schools, "
+                "community centres, and Housing Development Board flats across the island. "
+                "One major challenge is Singapore's tropical weather. Although the country receives plentiful "
+                "sunlight throughout the year, frequent clouds and heavy rain can reduce the amount of "
+                "electricity that solar panels produce. Engineers are working on ways to store the energy "
+                "collected on sunny days so that it can be used when the sky is overcast. "
+                "Singapore has also placed thousands of floating solar panels on reservoirs such as Tengeh "
+                "Reservoir in Tuas. This floating solar farm is one of the largest in the world and produces "
+                "enough electricity to power the waterworks that clean and supply water to the entire island. "
+                "The government aims to have solar panels on most of Singapore's suitable rooftops by 2030. "
+                "This shift towards clean energy helps reduce carbon emissions, which contribute to climate "
+                "change. By harnessing the power of the sun, Singapore is working towards a greener and "
+                "more sustainable future for all its residents.",
+                [
+                    ("Why does Singapore invest in solar energy?", "A",
+                     ["it has limited land and no natural resources like coal or oil",
+                      "solar panels are inexpensive to install", "Singapore has very few buildings",
+                      "other energy sources have been banned"]),
+                    ("What challenge does Singapore's tropical weather create for solar energy?", "B",
+                     ["the sun shines too brightly and damages the panels",
+                      "frequent clouds and heavy rain can reduce electricity production",
+                      "the heat melts the solar panel components", "strong winds blow the panels off rooftops"]),
+                    ("What does the word 'overcast' mean in the passage?", "C",
+                     ["extremely sunny and bright", "stormy with heavy rain",
+                      "covered with clouds", "very hot and humid"]),
+                    ("What is significant about Tengeh Reservoir?", "D",
+                     ["it is the largest reservoir in Asia", "it supplies water to Malaysia",
+                      "it generates power from wind turbines",
+                      "it hosts one of the largest floating solar farms in the world"]),
+                    ("How does increasing solar energy use benefit Singapore?", "C",
+                     ["it creates more jobs than any other industry", "it removes the need to import water",
+                      "it reduces carbon emissions and supports a greener future",
+                      "it powers all vehicles on the island"]),
+                ]
+            ),
+            (
+                "Ling's Big Decision", 4, "values",
+                "Ling had been saving her pocket money for three months. She had exactly ninety dollars — "
+                "just enough to buy the pair of limited-edition sneakers she had been dreaming about. On "
+                "the day she planned to visit the mall, she noticed a poster at school asking for donations "
+                "to help families affected by a recent flood in Malaysia. "
+                "The poster showed photographs of children her age standing in flooded homes, their "
+                "belongings ruined by muddy water. Ling felt a tug in her heart. She thought about how "
+                "she already had three pairs of perfectly good shoes at home, while some of these children "
+                "might not even have one. "
+                "That evening, Ling spoke to her father about what she had seen. He listened carefully "
+                "without telling her what to do. 'It's your money, Ling,' he said. 'Whatever you decide, "
+                "make sure you can live with it.' "
+                "The next morning, Ling placed an envelope with fifty dollars into the donation box. She "
+                "kept forty dollars to continue saving for the sneakers. It would take longer now, but she "
+                "felt lighter somehow — as though she had set down a heavy bag she hadn't known she was "
+                "carrying. Her teacher, who had seen Ling drop the envelope in, simply smiled and said "
+                "nothing. Some decisions, Ling realised, didn't need applause to feel right.",
+                [
+                    ("What had Ling been saving money for?", "A",
+                     ["to buy limited-edition sneakers", "to go on a holiday",
+                      "to donate to a charity", "to buy a birthday gift for a friend"]),
+                    ("What caused Ling to reconsider spending all her money?", "C",
+                     ["her father told her not to buy the sneakers", "the sneakers were sold out at the mall",
+                      "she saw a poster about families affected by a flood",
+                      "her teacher asked the class to donate"]),
+                    ("What does Ling's father's response suggest about him?", "D",
+                     ["he was disappointed that Ling wanted expensive sneakers",
+                      "he wanted Ling to donate all of her money",
+                      "he believed children should not make financial decisions",
+                      "he respected Ling's ability to make her own choices"]),
+                    ("What does 'felt lighter somehow' suggest about Ling after donating?", "B",
+                     ["she had become physically lighter from walking to school",
+                      "she felt relieved and at peace after making a generous decision",
+                      "she was glad to have less money to keep track of",
+                      "she felt tired and wanted to go home and rest"]),
+                    ("What is the main message of this story?", "C",
+                     ["people should never spend money on luxury items",
+                      "saving money is more important than spending it",
+                      "true satisfaction often comes from thinking of others",
+                      "parents should always decide how children spend their money"]),
+                ]
+            ),
+            (
+                "The Deep-Sea Discovery", 4, "science",
+                "More than eighty percent of the world's oceans remain unexplored. Scientists aboard the "
+                "research vessel Horizon were therefore not surprised to encounter something unusual during "
+                "their latest dive near the Mariana Trench — the deepest point on Earth, stretching nearly "
+                "eleven kilometres below the surface. "
+                "Using a remote-controlled submersible, the team captured footage of a creature they had "
+                "never seen before. It was pale, almost transparent, with long ribbon-like fins that "
+                "rippled gracefully in the total darkness. The creature appeared to produce its own soft "
+                "blue light through a process called bioluminescence — the same natural ability seen in "
+                "fireflies and certain deep-sea jellyfish. "
+                "Dr Amara, the team's marine biologist, was cautious despite her excitement. 'We cannot "
+                "say with certainty what species this is,' she told reporters. 'Deep-sea creatures are so "
+                "rarely observed that our knowledge of them remains very limited. This discovery reminds "
+                "us how much there is still to learn.' "
+                "The footage was shared with universities and research institutes around the world. "
+                "Scientists noticed that the creature's light patterns changed when a second, smaller "
+                "creature swam nearby, suggesting that bioluminescence might serve as a means of "
+                "communication. This discovery has renewed calls for greater funding and protection of "
+                "deep-sea habitats, which are increasingly threatened by pollution and mining operations.",
+                [
+                    ("What percentage of the world's oceans remain unexplored?", "A",
+                     ["more than eighty percent", "about fifty percent",
+                      "less than twenty percent", "exactly sixty percent"]),
+                    ("What is bioluminescence?", "C",
+                     ["a method of swimming in complete darkness",
+                      "a type of deep-sea pollution caused by chemicals",
+                      "the natural ability of a living thing to produce its own light",
+                      "a scientific tool used to film underwater creatures"]),
+                    ("Why was Dr Amara cautious about the discovery?", "D",
+                     ["she believed the creature was dangerous to approach",
+                      "the video footage was too blurry to study",
+                      "she was not convinced the creature was real",
+                      "deep-sea creatures are rarely observed and difficult to identify with certainty"]),
+                    ("What did scientists conclude from the creature's changing light patterns?", "B",
+                     ["the creature was frightened by the submersible's lights",
+                      "bioluminescence may be used as a form of communication",
+                      "the creature was trying to hide from the camera",
+                      "the light patterns matched those of known deep-sea jellyfish"]),
+                    ("What does the word 'transparent' mean in the passage?", "D",
+                     ["extremely large and powerful in the deep sea",
+                      "colourful and easy to spot in darkness",
+                      "capable of surviving in extremely cold water",
+                      "see-through or nearly clear"]),
+                ]
+            ),
+            (
+                "Singapore's Water Story", 4, "environment",
+                "Water is one of Singapore's most precious resources. As a small island nation with no "
+                "natural lakes or rivers large enough to store significant amounts of water, Singapore "
+                "has had to be creative and disciplined in managing its water supply. "
+                "Singapore uses four main sources of water, known as the 'Four National Taps'. The first "
+                "is rainwater collected and stored in reservoirs. The second is water imported from the "
+                "Johor River in Malaysia under long-term agreements. The third is NEWater — highly "
+                "purified recycled water treated until it is cleaner than most drinking water in the "
+                "world. The fourth is desalinated water, which is seawater with the salt removed. "
+                "NEWater was once considered an unusual idea, but today it supplies about forty percent "
+                "of Singapore's water needs. The technology uses micro-filtration, reverse osmosis, and "
+                "ultraviolet disinfection to remove all impurities. "
+                "Singapore's national water agency runs regular campaigns encouraging residents to use "
+                "water wisely. Schools teach water conservation from an early age, and water-efficient "
+                "fittings are required in all new buildings. Because Singapore knows from experience "
+                "what it means to face water shortages, it treats every drop as valuable. This careful, "
+                "forward-thinking approach to water management is now studied and admired by countries "
+                "around the world.",
+                [
+                    ("Why does Singapore face challenges in managing its water supply?", "C",
+                     ["it has too many rivers to manage efficiently",
+                      "its population is too small to build large dams",
+                      "it is a small island with no large lakes or rivers",
+                      "heavy rain causes constant flooding in its reservoirs"]),
+                    ("What are the 'Four National Taps'?", "B",
+                     ["four rivers that supply Singapore with water",
+                      "four methods Singapore uses to collect and produce water",
+                      "four companies that manage Singapore's water supply",
+                      "four dams built along Singapore's coastline"]),
+                    ("What does the word 'desalinated' mean in the passage?", "D",
+                     ["recycled and purified through filtration", "collected from rainfall and stored",
+                      "tested for safety before drinking", "having had the salt removed"]),
+                    ("What does Singapore's development of NEWater show about the country?", "C",
+                     ["Singapore relies on Malaysia for the majority of its water",
+                      "Singapore prefers importing water over producing its own",
+                      "Singapore is willing to use creative solutions to overcome challenges",
+                      "Singapore's water technology was entirely borrowed from other countries"]),
+                    ("Why is Singapore's water management admired worldwide?", "D",
+                     ["it is the cheapest water system in Asia",
+                      "it relies on a single source to supply all its water",
+                      "it was designed entirely by international experts",
+                      "it is a forward-thinking solution to the challenge of scarce water resources"]),
+                ]
+            ),
+            (
+                "The Rainforest at Night", 4, "nature",
+                "As the sun dips below the horizon in the tropical rainforest, a different world stirs "
+                "to life. Animals that remain hidden during the heat of the day emerge cautiously in the "
+                "cooler darkness. This pattern of being active at night, known as nocturnal behaviour, "
+                "helps many species avoid the intense daytime heat and predators that hunt by sight. "
+                "Owls launch silently from their perches, using exceptional hearing to locate prey "
+                "beneath layers of fallen leaves. Tree frogs cling to damp bark and fill the night air "
+                "with calls that scientists use to measure the health of a forest ecosystem. Slow lorises "
+                "— small primates with enormous round eyes — move carefully through the canopy, their "
+                "eyes absorbing every trace of moonlight. "
+                "Perhaps the most dramatic nighttime display belongs to fireflies. In parts of Southeast "
+                "Asia, thousands of fireflies gather in the same trees and flash their lights in perfect "
+                "synchrony. Scientists believe this coordinated display may help them attract mates "
+                "across long distances in the dense forest. "
+                "Rainforests cover only about six percent of the Earth's land surface yet are home to "
+                "more than half of the world's plant and animal species. Protecting these habitats — "
+                "including their nocturnal ecosystems — is essential for maintaining the rich "
+                "biodiversity that our planet depends on.",
+                [
+                    ("Why do some animals prefer to be active at night?", "C",
+                     ["there is more food available after dark",
+                      "they are frightened of humans during the day",
+                      "to avoid intense heat and predators that hunt by sight",
+                      "nocturnal animals are physically unable to see in daylight"]),
+                    ("How do owls locate their prey in total darkness?", "D",
+                     ["by using a keen sense of smell", "by following the movements of other animals",
+                      "by seeing clearly in complete darkness", "by using their exceptional hearing"]),
+                    ("What do scientists learn from studying tree frog calls?", "C",
+                     ["the average temperature of the rainforest at night",
+                      "how far away other nocturnal animals are",
+                      "the health of a forest ecosystem",
+                      "which trees frogs prefer to climb and rest on"]),
+                    ("What does the word 'synchrony' mean in the passage?", "C",
+                     ["randomly and without any pattern", "in a slow and gradual manner",
+                      "at the same time in a perfectly coordinated way",
+                      "in reaction to a sudden threat or danger"]),
+                    ("Why is protecting rainforests described as 'essential'?", "D",
+                     ["they produce most of the world's fresh drinking water",
+                      "they cover more than half of the Earth's land surface",
+                      "they are the natural habitat of the world's largest animals",
+                      "they are home to more than half of all plant and animal species on Earth"]),
+                ]
+            ),
         ]
 
         for title, level, topic, content, questions in passages:
+            if not seed_all and level != 4:
+                continue  # Only insert level-4 passages when upgrading an existing database
             cursor.execute(
                 "INSERT INTO passages (title, content, difficulty_level, word_count, topic, is_seed) VALUES (?, ?, ?, ?, ?, 1)",
                 (title, content, level, len(content.split()), topic)
