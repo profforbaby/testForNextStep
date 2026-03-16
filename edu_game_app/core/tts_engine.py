@@ -1,10 +1,13 @@
 """
 Text-to-Speech engine for reading assistance
-Uses system TTS for natural voice output
+Uses macOS 'say' command on macOS, pyttsx3 on other platforms
 """
+import platform
+import subprocess
 import threading
-import pyttsx3
 from typing import Optional, Callable
+
+_IS_MACOS = platform.system() == 'Darwin'
 
 
 class TTSEngine:
@@ -12,16 +15,18 @@ class TTSEngine:
 
     def __init__(self):
         self.is_speaking = False
-        self._rate = 150
+        self._rate = 150  # words per minute
         self._volume = 0.9
         self._voice_id: Optional[str] = None
-        self._current_engine: Optional[pyttsx3.Engine] = None
+        self._current_process: Optional[subprocess.Popen] = None  # macOS
         self._lock = threading.Lock()
-        self._find_voice()
+        if not _IS_MACOS:
+            self._find_voice()
 
     def _find_voice(self):
-        """Discover a preferred voice ID without keeping an engine alive on the main thread."""
+        """Discover a preferred pyttsx3 voice (non-macOS only)."""
         try:
+            import pyttsx3
             engine = pyttsx3.init()
             voices = engine.getProperty('voices')
             preferred_names = ['zira', 'samantha', 'karen', 'victoria', 'alex']
@@ -39,48 +44,65 @@ class TTSEngine:
             print(f"TTS voice discovery error: {e}")
 
     def speak(self, text: str, done_callback: Optional[Callable] = None):
-        """
-        Speak text in a background thread so Qt's event loop is not blocked.
-
-        Args:
-            text: Text to speak
-            done_callback: Called (from the background thread) when speech finishes or stops
-        """
+        """Speak text in a background thread so Qt's event loop is not blocked."""
         self.stop()  # cancel any in-progress speech first
         self.is_speaking = True
         t = threading.Thread(target=self._speak_thread, args=(text, done_callback), daemon=True)
         t.start()
 
     def _speak_thread(self, text: str, done_callback: Optional[Callable]):
-        engine = None
         try:
-            engine = pyttsx3.init()
-            with self._lock:
-                self._current_engine = engine
-            if self._voice_id:
-                engine.setProperty('voice', self._voice_id)
-            engine.setProperty('rate', self._rate)
-            engine.setProperty('volume', self._volume)
-            engine.say(text)
-            engine.runAndWait()
+            if _IS_MACOS:
+                self._speak_macos(text)
+            else:
+                self._speak_pyttsx3(text)
         except Exception as e:
             print(f"TTS speak error: {e}")
         finally:
-            with self._lock:
-                self._current_engine = None
             self.is_speaking = False
             if done_callback:
                 done_callback()
+
+    def _speak_macos(self, text: str):
+        """Use macOS built-in 'say' command."""
+        # Pass text via stdin to avoid argument length limits and character escaping issues.
+        # Use DEVNULL for stdout/stderr to avoid inheriting broken file descriptors
+        # when the app is launched from a shell script (e.g. run_app.sh via Finder).
+        proc = subprocess.Popen(
+            ['/usr/bin/say', '-r', str(self._rate)],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
+        with self._lock:
+            self._current_process = proc
+        _, err = proc.communicate(input=text.encode('utf-8'))
+        if proc.returncode != 0:
+            print(f"TTS say error (exit {proc.returncode}): {err.decode().strip()}")
+        with self._lock:
+            self._current_process = None
+
+    def _speak_pyttsx3(self, text: str):
+        """Use pyttsx3 on non-macOS platforms."""
+        import pyttsx3
+        engine = pyttsx3.init()
+        if self._voice_id:
+            engine.setProperty('voice', self._voice_id)
+        engine.setProperty('rate', self._rate)
+        engine.setProperty('volume', self._volume)
+        engine.say(text)
+        engine.runAndWait()
 
     def stop(self):
         """Stop current speech."""
         self.is_speaking = False
         with self._lock:
-            if self._current_engine:
+            if self._current_process:
                 try:
-                    self._current_engine.stop()
+                    self._current_process.terminate()
                 except Exception:
                     pass
+                self._current_process = None
 
     def set_rate(self, rate: int):
         self._rate = rate
@@ -89,7 +111,10 @@ class TTSEngine:
         self._volume = volume
 
     def get_available_voices(self) -> list:
+        if _IS_MACOS:
+            return []  # macOS uses system default voice
         try:
+            import pyttsx3
             engine = pyttsx3.init()
             voices = engine.getProperty('voices')
             result = [(v.id, v.name, v.languages) for v in voices]

@@ -15,7 +15,7 @@ echo ""
 PYTHON=""
 for candidate in \
     "$(command -v python3 2>/dev/null)" \
-    /usr/bin/python3 \
+    /usr/bin/pytwhathon3 \
     /usr/local/bin/python3 \
     /opt/homebrew/bin/python3; do
     if [ -x "$candidate" ]; then
@@ -51,8 +51,8 @@ cat > "$PLIST_PATH" <<PLIST
 
     <key>ProgramArguments</key>
     <array>
-        <string>$PYTHON</string>
-        <string>$APP_DIR/run_edu_app.py</string>
+        <string>/bin/bash</string>
+        <string>$APP_DIR/edu_game_app/run_app.sh</string>
     </array>
 
     <key>WorkingDirectory</key>

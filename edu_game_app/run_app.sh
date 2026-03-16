@@ -1,14 +1,20 @@
 #!/bin/bash
 # Startup script for Learn & Play Educational App
 # Works both from terminal and when launched automatically at login.
+# Runs equivalently to: python run_edu_app.py from the project root.
 
-# Change to the directory this script lives in
-cd "$(dirname "$0")"
+# Resolve the project root (one level above this script's edu_game_app/ folder)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Load .env so ANTHROPIC_API_KEY is available
-if [ -f .env ]; then
+# Change to project root so package imports (edu_game_app.*) work correctly
+cd "$PROJECT_ROOT"
+
+# Load .env from edu_game_app/ before any imports read env vars
+ENV_FILE="$PROJECT_ROOT/edu_game_app/.env"
+if [ -f "$ENV_FILE" ]; then
     set -a
-    source .env
+    source "$ENV_FILE"
     set +a
 fi
 
@@ -27,6 +33,7 @@ if [ -z "$PYTHON" ]; then
 fi
 
 # Install dependencies silently if missing
-"$PYTHON" -m pip install -r requirements.txt --quiet 2>/dev/null
+"$PYTHON" -m pip install -r "$PROJECT_ROOT/edu_game_app/requirements.txt" --quiet 2>/dev/null
 
-exec "$PYTHON" app.py
+# Launch via run_edu_app.py from the project root (same as running it directly)
+exec "$PYTHON" "$PROJECT_ROOT/run_edu_app.py"

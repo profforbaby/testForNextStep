@@ -2,11 +2,13 @@
 Main application window
 """
 import sys
+import signal
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                               QLabel, QPushButton, QStackedWidget, QMessageBox,
                               QInputDialog, QLineEdit)
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QEvent, QRect
 from PyQt6.QtGui import QFont, QAction
+from PyQt6.QtWidgets import QApplication
 
 from edu_game_app.gui.reading_widget import ReadingWidget
 from edu_game_app.gui.quiz_widget import QuizWidget
@@ -61,6 +63,16 @@ class MainWindow(QMainWindow):
 
         # Track which low-time thresholds have already triggered a warning this session
         self._warned_thresholds: set = set()
+
+        # Track current always-on-top state to avoid redundant flag changes
+        self._always_on_top: bool = False
+
+        # Flag set by SIGTERM (system shutdown/restart) — allows closeEvent to skip password
+        self._system_shutdown: bool = False
+        signal.signal(signal.SIGTERM, self._handle_sigterm)
+
+        # Apply correct initial window behavior based on starting balance
+        self._update_window_lock(self.game_tracker.get_time_balance())
 
     def init_ui(self):
         """Initialize user interface"""
@@ -217,7 +229,7 @@ class MainWindow(QMainWindow):
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
 
-        phone_action = QAction("手機控制網址", self)
+        phone_action = QAction("Phone Control URL", self)
         phone_action.triggered.connect(self.show_phone_url)
         help_menu.addAction(phone_action)
 
@@ -233,14 +245,12 @@ class MainWindow(QMainWindow):
                     topic="random"
                 )
             except Exception:
-                passage = self.content_gen._get_fallback_passage(level)
+                passage = self.db.get_random_passage_by_level(level)
         else:
             passage = None
 
         if passage is None:
-            from ..core.content_generator import ContentGenerator
-            temp_gen = ContentGenerator.__new__(ContentGenerator)
-            passage = temp_gen._get_fallback_passage(level)
+            passage = self.db.get_random_passage_by_level(level)
 
         passage.id = self.db.save_passage(passage)
 
@@ -349,8 +359,26 @@ class MainWindow(QMainWindow):
         # Enable/disable play button
         self.play_games_btn.setEnabled(self.game_tracker.get_time_balance() > 0)
 
+    def _update_window_lock(self, balance: int):
+        """
+        When balance == 0: app stays on top of everything and cannot be minimized.
+        When balance  > 0: app behaves normally so the kid can use the browser/game.
+        Only changes the window flag when the state actually changes to avoid flicker.
+        """
+        should_lock = (balance <= 0)
+        if should_lock == self._always_on_top:
+            return  # No change needed
+
+        self._always_on_top = should_lock
+        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, should_lock)
+        # Re-show is required for the flag change to take effect on all platforms
+        self.show()
+        if should_lock:
+            self.activateWindow()
+            self.raise_()
+
     def update_game_time(self):
-        """Update game time display and enforce browser time limits (called every second)."""
+        """Update game time display and enforce browser/game time limits (called every second)."""
         controller = self.game_tracker.controller
 
         # Keep browser session state in sync
@@ -360,15 +388,19 @@ class MainWindow(QMainWindow):
         self.timer_widget.update_time(balance)
         self.play_games_btn.setEnabled(balance > 0)
 
-        # Time's up — force-close browser if it's open
-        if balance <= 0 and browser_running:
-            controller.stop_browser_processes()
-            self.db.use_game_time(0)  # flush any remaining DB record
-            QMessageBox.warning(
-                self, "遊戲時間結束！",
-                "你的遊戲時間已經用完了！\n瀏覽器已關閉。\n\n請完成更多閱讀任務來賺取更多時間！"
-            )
-            self._warned_thresholds.clear()
+        # Keep always-on-top / minimize-lock in sync with current balance
+        self._update_window_lock(balance)
+
+        # No time available — kill browsers, Minecraft Education, and Steam immediately
+        if balance <= 0:
+            blocked_found = controller.detect_and_stop_blocked_apps()
+            if blocked_found or browser_running:
+                self.db.use_game_time(0)  # flush any remaining DB record
+                QMessageBox.warning(
+                    self, "Time's Up!",
+                    "Your game time has run out!\nBrowser/games have been closed.\n\nComplete more reading tasks to earn more time!"
+                )
+                self._warned_thresholds.clear()
             return
 
         # Low-time warnings (only show each threshold once per session)
@@ -377,8 +409,8 @@ class MainWindow(QMainWindow):
                 if balance <= threshold and threshold not in self._warned_thresholds:
                     self._warned_thresholds.add(threshold)
                     QMessageBox.warning(
-                        self, "時間快到了！",
-                        f"還剩 {balance} 分鐘的遊戲時間！\n請準備結束遊戲。"
+                        self, "Time Running Low!",
+                        f"Only {balance} minute(s) of game time left!\nPlease start wrapping up."
                     )
 
     def launch_game(self):
@@ -403,14 +435,14 @@ class MainWindow(QMainWindow):
         """Show the URL for phone-based parent control"""
         if self._remote_url:
             QMessageBox.information(
-                self, "手機控制",
-                f"請確認手機與電腦在同一個 Wi-Fi 網路，\n"
-                f"然後在手機瀏覽器開啟：\n\n"
+                self, "Phone Control",
+                f"Make sure your phone and this computer are on the same Wi-Fi network,\n"
+                f"then open this URL in your phone's browser:\n\n"
                 f"{self._remote_url}\n\n"
-                f"密碼與家長控制密碼相同（預設：parent123）"
+                f"Password is the same as the parent control password (default: parent123)"
             )
         else:
-            QMessageBox.warning(self, "手機控制", "遠端伺服器啟動失敗，請確認已安裝 flask 套件。")
+            QMessageBox.warning(self, "Phone Control", "Remote server failed to start. Please make sure the flask package is installed.")
 
     def show_about(self):
         """Show about dialog"""
@@ -433,9 +465,45 @@ class MainWindow(QMainWindow):
         elif ok:
             QMessageBox.warning(self, "Access Denied", "Incorrect password!")
 
+    def moveEvent(self, event):
+        """Keep window fully visible on screen — prevent dragging to screen edge."""
+        super().moveEvent(event)
+        screen = QApplication.primaryScreen()
+        if screen is None:
+            return
+        available: QRect = screen.availableGeometry()
+        geo = self.frameGeometry()
+        x = max(available.left(), min(geo.x(), available.right() - geo.width()))
+        y = max(available.top(), min(geo.y(), available.bottom() - geo.height()))
+        if x != geo.x() or y != geo.y():
+            self.move(x, y)
+
+    def changeEvent(self, event):
+        """Prevent minimizing when there is no game time."""
+        if event.type() == QEvent.Type.WindowStateChange:
+            if self.isMinimized() and self.game_tracker.get_time_balance() <= 0:
+                # Immediately restore — kids cannot minimize while time is zero
+                self.showNormal()
+                self.activateWindow()
+                self.raise_()
+                event.ignore()
+                return
+        super().changeEvent(event)
+
+    def _handle_sigterm(self, signum, frame):
+        """Called when macOS sends SIGTERM during shutdown/restart/logout."""
+        self._system_shutdown = True
+        self.close()
+
     def closeEvent(self, event):
         """Handle window close event"""
-        # Prevent closing without password
+        # Allow closing without password during system shutdown/restart/logout
+        if self._system_shutdown:
+            self.db.close()
+            event.accept()
+            return
+
+        # Require password to close
         password, ok = QInputDialog.getText(self, "Close Application",
                                            "Enter parent password to close:",
                                            QLineEdit.EchoMode.Password)

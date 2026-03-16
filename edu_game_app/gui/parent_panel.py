@@ -251,7 +251,7 @@ class ParentPanel(QDialog):
         controller = self.game_tracker.controller
 
         # --- Enable / disable toggle ---
-        self.browser_monitor_checkbox = QCheckBox("啟用瀏覽器時間監控（瀏覽器使用時間從遊戲時間中扣除）")
+        self.browser_monitor_checkbox = QCheckBox("Enable browser time monitoring (browser usage deducted from game time)")
         self.browser_monitor_checkbox.setFont(QFont("Arial", 12))
         self.browser_monitor_checkbox.setChecked(controller.browser_monitoring_enabled)
         self.browser_monitor_checkbox.toggled.connect(self.toggle_browser_monitoring)
@@ -260,20 +260,20 @@ class ParentPanel(QDialog):
         layout.addSpacing(10)
 
         # --- Current status ---
-        status_group = QGroupBox("目前狀態")
+        status_group = QGroupBox("Current Status")
         status_layout = QVBoxLayout(status_group)
 
         browser_active = controller.is_browser_running
         session_mins = controller.get_browser_session_minutes()
 
-        status_text = "瀏覽器：正在使用中" if browser_active else "瀏覽器：未開啟"
+        status_text = "Browser: In use" if browser_active else "Browser: Not open"
         if browser_active:
-            status_text += f"（本次已使用 {session_mins} 分鐘）"
+            status_text += f" ({session_mins} min used this session)"
         self.browser_status_label = QLabel(status_text)
         self.browser_status_label.setFont(QFont("Arial", 11))
         status_layout.addWidget(self.browser_status_label)
 
-        balance_text = f"剩餘遊戲時間（含瀏覽器）：{self.game_tracker.get_time_balance()} 分鐘"
+        balance_text = f"Remaining game time (incl. browser): {self.game_tracker.get_time_balance()} min"
         self.browser_balance_label = QLabel(balance_text)
         self.browser_balance_label.setFont(QFont("Arial", 11))
         status_layout.addWidget(self.browser_balance_label)
@@ -283,13 +283,13 @@ class ParentPanel(QDialog):
         layout.addSpacing(10)
 
         # --- Monitored browser list ---
-        browsers_group = QGroupBox("監控中的瀏覽器程序")
+        browsers_group = QGroupBox("Monitored Browser Processes")
         browsers_layout = QVBoxLayout(browsers_group)
 
         for name in sorted(controller.BROWSER_PROCESSES):
             browsers_layout.addWidget(QLabel(f"  • {name}"))
 
-        info = QLabel("（如需新增其他瀏覽器，請聯絡開發者修改設定）")
+        info = QLabel("(To add other browsers, contact the developer to update the settings)")
         info.setFont(QFont("Arial", 9))
         info.setWordWrap(True)
         browsers_layout.addWidget(info)
@@ -299,7 +299,7 @@ class ParentPanel(QDialog):
         layout.addSpacing(10)
 
         # --- Manual close button ---
-        close_btn = QPushButton("立即關閉所有瀏覽器")
+        close_btn = QPushButton("Close All Browsers Now")
         close_btn.setFont(QFont("Arial", 12))
         close_btn.clicked.connect(self.force_close_browsers)
         layout.addWidget(close_btn)
@@ -307,8 +307,8 @@ class ParentPanel(QDialog):
         layout.addStretch()
 
         note = QLabel(
-            "說明：瀏覽器使用時間與遊戲時間共用同一個時間額度。\n"
-            "當時間耗盡時，瀏覽器將自動被關閉。"
+            "Note: Browser usage shares the same time balance as game time.\n"
+            "When time runs out, browsers will be closed automatically."
         )
         note.setWordWrap(True)
         note.setFont(QFont("Arial", 9))
@@ -319,19 +319,19 @@ class ParentPanel(QDialog):
     def toggle_browser_monitoring(self, enabled: bool):
         """Enable or disable browser monitoring"""
         self.game_tracker.controller.browser_monitoring_enabled = enabled
-        state = "已啟用" if enabled else "已停用"
-        QMessageBox.information(self, "設定已儲存", f"瀏覽器監控{state}。")
+        state = "enabled" if enabled else "disabled"
+        QMessageBox.information(self, "Setting Saved", f"Browser monitoring {state}.")
 
     def force_close_browsers(self):
         """Force-close all browser processes immediately"""
         reply = QMessageBox.question(
-            self, "確認關閉",
-            "確定要立即關閉所有瀏覽器嗎？",
+            self, "Confirm Close",
+            "Are you sure you want to close all browsers now?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if reply == QMessageBox.StandardButton.Yes:
             self.game_tracker.controller.stop_browser_processes()
-            QMessageBox.information(self, "完成", "所有瀏覽器已關閉。")
+            QMessageBox.information(self, "Done", "All browsers have been closed.")
 
     def save_settings(self):
         """Save settings"""

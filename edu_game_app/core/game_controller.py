@@ -13,10 +13,25 @@ from pathlib import Path
 class GameController:
     """Manages game launching and time enforcement"""
 
-    # Browser process names to monitor (Windows)
+    # Browser process names to monitor (Windows + macOS)
     BROWSER_PROCESSES = {
+        # Windows
         'chrome.exe', 'firefox.exe', 'msedge.exe',
         'opera.exe', 'brave.exe', 'iexplore.exe',
+        # macOS
+        'google chrome', 'firefox', 'safari', 'microsoft edge',
+        'brave browser', 'opera', 'chromium',
+    }
+
+    # Blocked app process names when time balance is zero (Windows + macOS)
+    BLOCKED_PROCESSES = {
+        # Minecraft Education Edition (macOS/Windows)
+        'minecraft education edition', 'minecrafteducationedition',
+        'minecraftedu.exe', 'minecrafteducation.exe',
+        # Steam
+        'steam', 'steam.exe',
+        # Common Steam game runtime helpers
+        'steamwebhelper', 'steamwebhelper.exe',
     }
 
     def __init__(self, time_balance: int = 0):
@@ -109,6 +124,28 @@ class GameController:
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 pass
         self._commit_browser_time()
+
+    def detect_and_stop_blocked_apps(self) -> bool:
+        """
+        Detect and kill browsers + blocked apps (Minecraft Education, Steam).
+        Called every tick when time balance is zero.
+
+        Returns:
+            True if any blocked process was found and terminated.
+        """
+        found = False
+        all_blocked = self.BROWSER_PROCESSES | self.BLOCKED_PROCESSES
+        for proc in psutil.process_iter(['name', 'pid']):
+            try:
+                pname = proc.info['name']
+                if pname and pname.lower() in all_blocked:
+                    proc.terminate()
+                    found = True
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+        if found:
+            self._commit_browser_time()
+        return found
 
     def get_browser_session_minutes(self) -> int:
         """Return how many minutes the browser has been open in the current session."""
